@@ -1,0 +1,4 @@
+spotipy
+opencc-python-reimplemented
+python-dotenv
+py-sonic
