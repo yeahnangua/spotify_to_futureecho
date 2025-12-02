@@ -271,13 +271,13 @@ def main():
         return
 
     #Process ALL songs
-    # total_songs = len(songs_to_process)
-    # logger.info(f"开始处理 {total_songs} 首歌曲...")
+    total_songs = len(songs_to_process)
+    logger.info(f"开始处理 {total_songs} 首歌曲...")
 
     # 限制只处理前 30 首 (测试用)
-    songs_to_process = songs_to_process[:40]
-    total_songs = len(songs_to_process)
-    logger.info(f"本次仅处理前 {total_songs} 首歌曲 (测试模式)")
+    # songs_to_process = songs_to_process[:40]
+    # total_songs = len(songs_to_process)
+    # logger.info(f"本次仅处理前 {total_songs} 首歌曲 (测试模式)")
 
     matched_song_ids = []
     failed_songs = []
