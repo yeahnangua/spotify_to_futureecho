@@ -215,27 +215,63 @@ def clean_track_name(name):
     # 例子: "光年之外 (电影 《Passengers》 中国区主题曲)" -> "光年之外"
     return re.sub(r'\(.*?\)|（.*?）', '', name).strip()
 
-def select_best_match(song_list):
+def normalize_name(name):
+    """标准化歌曲名用于比较：去除括号内容、转小写、去除首尾空格"""
+    name = re.sub(r'\(.*?\)|（.*?）|\[.*?\]|【.*?】', '', name)
+    return name.lower().strip()
+
+def select_best_match(song_list, target_track_name):
     """
     从搜索结果中选择最佳匹配。
-    优先选择非 Live 版本。如果只有 Live 版，则选择 Live 版。
+    优先级：歌曲名匹配 > 非 Live 版本
     返回: (selected_song, is_live_forced)
     """
     if not song_list:
         return None, False
-    
-    non_live_songs = []
+
+    target_normalized = normalize_name(target_track_name)
+
+    # 分类结果
+    exact_match_non_live = []
+    contains_match_non_live = []
+    exact_match_live = []
+    contains_match_live = []
+    other = []
+
     for song in song_list:
-        title = song.get('title', '').lower()
-        if 'live' not in title:
-            non_live_songs.append(song)
-    
-    if non_live_songs:
-        # 找到非 Live 版本
-        return non_live_songs[0], False
-    else:
-        # 只有 Live 版本，退而求其次
-        return song_list[0], True
+        title = song.get('title', '')
+        title_normalized = normalize_name(title)
+        is_live = 'live' in title.lower()
+
+        # 判断匹配类型
+        is_exact = (title_normalized == target_normalized)
+        is_contains = (target_normalized in title_normalized or
+                       title_normalized in target_normalized)
+
+        if is_exact and not is_live:
+            exact_match_non_live.append(song)
+        elif is_contains and not is_live:
+            contains_match_non_live.append(song)
+        elif is_exact and is_live:
+            exact_match_live.append(song)
+        elif is_contains and is_live:
+            contains_match_live.append(song)
+        else:
+            other.append(song)
+
+    # 按优先级返回
+    if exact_match_non_live:
+        return exact_match_non_live[0], False
+    if contains_match_non_live:
+        return contains_match_non_live[0], False
+    if exact_match_live:
+        return exact_match_live[0], True
+    if contains_match_live:
+        return contains_match_live[0], True
+    if other:
+        return other[0], False
+
+    return None, False
 
 def main():
     load_dotenv()
@@ -295,9 +331,9 @@ def main():
         # === 策略 1: 搜索 "歌名 歌手" ===
         search_query_1 = f"{track_name} {artist_name}"
         results = navi_client.search(search_query_1)
-        
-        matched_song, is_live_forced = select_best_match(results)
-        
+
+        matched_song, is_live_forced = select_best_match(results, track_name)
+
         if not matched_song:
             # === 策略 2: 降级搜索，去除括号，只搜 "歌名" ===
             cleaned_name = clean_track_name(track_name)
@@ -305,7 +341,7 @@ def main():
                 search_query_2 = cleaned_name
                 # logger.info(f"    尝试降级搜索: {search_query_2}")
                 results = navi_client.search(search_query_2)
-                matched_song, is_live_forced = select_best_match(results)
+                matched_song, is_live_forced = select_best_match(results, cleaned_name)
 
         # === 结果处理 ===
         if matched_song:
